@@ -1,7 +1,7 @@
 const vertexShaderSource = `
     attribute vec4 aVertexPosition;
     void main() {
-        gl_PointSize = 10.0; // Increase the point size for visibility
+        gl_PointSize = 1.0; // Increase the point size for visibility
         gl_Position = aVertexPosition;
     }`;
 
@@ -61,12 +61,12 @@ function loadShader(gl, type, source) {
 
 function createGrid(rows, columns) {
     let vertices = [];
-    // Simplified grid for testing
-    vertices.push(-0.5, -0.5, 0);
-    vertices.push(0.5, -0.5, 0);
-    vertices.push(-0.5, 0.5, 0);
-    vertices.push(0.5, 0.5, 0);
-    console.log("Vertices:", vertices);
+    for (let y = 0; y <= rows; y++) {
+        for (let x = 0; x <= columns; x++) {
+            // Normalize x, y to [-1, 1]
+            vertices.push(2 * x / columns - 1, 2 * y / rows - 1, 0);
+        }
+    }
     return vertices;
 }
 
@@ -86,7 +86,7 @@ function render(gl, shaderProgram, positionBuffer) {
     gl.vertexAttribPointer(vertexPosition, 3, gl.FLOAT, false, 0, 0);
 
     // Draw the grid (as points for now)
-    gl.drawArrays(gl.POINTS, 0, 4);
+    gl.drawArrays(gl.POINTS, 0, (100 + 1) * (100 + 1)); // Adjust count based on grid size
 
     requestAnimationFrame(() => render(gl, shaderProgram, positionBuffer));
 }
