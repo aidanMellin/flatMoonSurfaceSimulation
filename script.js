@@ -1,9 +1,10 @@
-// Define your shaders as strings outside the init function
 const vertexShaderSource = `
     attribute vec4 aVertexPosition;
     void main() {
+        gl_PointSize = 10.0; // Increase the point size for visibility
         gl_Position = aVertexPosition;
     }`;
+
 
 const fragmentShaderSource = `
     void main() {
@@ -35,13 +36,7 @@ function init() {
     }
 
     // Create the buffer for vertex positions
-    const vertices = [
-        -1.0,  1.0,
-         1.0,  1.0,
-        -1.0, -1.0,
-         1.0, -1.0,
-    ];
-
+    const vertices = createGrid(100, 100); // Create a 100x100 grid
     const positionBuffer = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STATIC_DRAW);
@@ -64,7 +59,22 @@ function loadShader(gl, type, source) {
     return shader;
 }
 
+function createGrid(rows, columns) {
+    let vertices = [];
+    // Simplified grid for testing
+    vertices.push(-0.5, -0.5, 0);
+    vertices.push(0.5, -0.5, 0);
+    vertices.push(-0.5, 0.5, 0);
+    vertices.push(0.5, 0.5, 0);
+    console.log("Vertices:", vertices);
+    return vertices;
+}
+
+
 function render(gl, shaderProgram, positionBuffer) {
+    // Set clear color to black, fully opaque
+    gl.clearColor(0.0, 0.0, 0.0, 1.0);
+    // Clear the color buffer with specified clear color
     gl.clear(gl.COLOR_BUFFER_BIT);
 
     gl.useProgram(shaderProgram);
@@ -73,9 +83,10 @@ function render(gl, shaderProgram, positionBuffer) {
 
     const vertexPosition = gl.getAttribLocation(shaderProgram, 'aVertexPosition');
     gl.enableVertexAttribArray(vertexPosition);
-    gl.vertexAttribPointer(vertexPosition, 2, gl.FLOAT, false, 0, 0);
+    gl.vertexAttribPointer(vertexPosition, 3, gl.FLOAT, false, 0, 0);
 
-    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+    // Draw the grid (as points for now)
+    gl.drawArrays(gl.POINTS, 0, 4);
 
     requestAnimationFrame(() => render(gl, shaderProgram, positionBuffer));
 }
