@@ -138,7 +138,7 @@ function setupEventListeners() {
             cameraAngleY += movementX * rotationSpeed;
 
             // Rotate the camera up/down
-            cameraAngleX += movementY * rotationSpeed;
+            cameraAngleX -= movementY * rotationSpeed;
 
             // Limit vertical look to straight up or straight down
             cameraAngleX = Math.max(-Math.PI/2, Math.min(Math.PI/2, cameraAngleX));

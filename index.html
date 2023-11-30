@@ -1,43 +1,45 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Flat Moon Surface Simulation</title>
-    <!-- Style for canvas and page layout -->
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            height: 100vh;
-            margin: 0;
-        }
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>Flat Moon Surface Simulation</title>
+        <!-- Style for canvas and page layout -->
+        <style>
+            body {
+                font-family: Arial, sans-serif;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+                height: 100vh;
+                margin: 0;
+            }
 
-        canvas {
-            border: 1px solid black;
-        }
-    </style>
-</head>
-<body>
-    <h1>Flat Moon Surface Simulation</h1>
-    <canvas id="glCanvas" width="800" height="600">
-        Your browser does not support the HTML5 canvas element.
-    </canvas>
+            canvas {
+                border: 1px solid black;
+            }
+        </style>
+    </head>
+    <body>
+        <h1>Flat Moon Surface Simulation</h1>
+        <canvas id="glCanvas" width="800" height="600">
+            Your browser does not support the HTML5 canvas element.
+        </canvas>
 
-    <div id="instructions">
-        <p>Controls:</p>
-        <ul>
-            <li>W/S: Move camera forward/backward</li>
-            <li>A/D: Move camera left/right</li>
-            <li>Up/Down: Increase/decrease field of view</li>
-            <!-- Add more controls as needed -->
-        </ul>
-    </div>
-    
-    <!-- WebGL Script -->
-    <script src="perlin.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/gl-matrix/2.8.1/gl-matrix-min.js"></script>
-    <script type="text/javascript" src="script.js"></script>
-</body>
-</html>
+        <div id="instructions">
+            <p>Controls:</p>
+            <ul>
+                <li>W/S: Move camera forward/backward</li>
+                <li>A/D: Move camera left/right</li>
+                <li>Up/Down Arrows: Increase/decrease field of view</li>
+                <li>Right-Click + Drag: Look around</li>
+                <li>Mouse Wheel: Zoom in/out</li>
+            </ul>
+        </div>
+        
+        
+        <!-- WebGL Script -->
+        <script src="perlin.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/gl-matrix/2.8.1/gl-matrix-min.js"></script>
+        <script type="text/javascript" src="script.js"></script>
+    </body>
+    </html>
