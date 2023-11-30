@@ -1,7 +1,7 @@
 const vertexShaderSource = `
     attribute vec4 aVertexPosition;
     void main() {
-        gl_PointSize = 1.0; // Increase the point size for visibility
+        gl_PointSize = 2.0; // Increase the point size for visibility
         gl_Position = aVertexPosition;
     }`;
 
