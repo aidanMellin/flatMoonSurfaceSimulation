@@ -16,6 +16,9 @@ let cameraAngleY = 0;
 let cameraSpeed = 0.1;
 let rotationSpeed = 0.005;
 
+let rows = 100;
+let columns = 100;
+
 const vertexShaderSource = `
     attribute vec4 aVertexPosition;
     uniform mat4 uProjectionMatrix;
@@ -110,6 +113,16 @@ function setupEventListeners() {
             case 'ArrowDown': // Decrease FOV
                 fov = Math.max(fov - 1, 1);
                 break;
+                case '+':
+                    rows = Math.min(rows + 10, 200); // Prevent it from going too high
+                    columns = Math.min(columns + 10, 200);
+                    regenerateGrid();
+                    break;
+                case '-':
+                    rows = Math.max(rows - 10, 10); // Prevent it from going too low
+                    columns = Math.max(columns - 10, 10);
+                    regenerateGrid();
+                    break;
         }
         updateCamera();
     });
@@ -177,6 +190,13 @@ function setupEventListeners() {
     });
 }
 
+function regenerateGrid() {
+    let vertices = createGrid(rows, columns);
+    gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STATIC_DRAW);
+}
+
+
 function updateCamera() {
     let aspect = gl.canvas.clientWidth / gl.canvas.clientHeight;
     mat4.perspective(projectionMatrix, (fov * Math.PI) / 180, aspect, 0.1, 100.0);
@@ -212,39 +232,40 @@ function loadShader(gl, type, source) {
 }
 
 function createGrid(rows, columns) {
+    let grid = [];
     let vertices = [];
 
-    for (let z = 0; z < rows; z++) {
-        for (let x = 0; x < columns; x++) {
+    // Create vertices and store them in a grid
+    for (let z = 0; z <= rows; z++) {
+        let row = [];
+        for (let x = 0; x <= columns; x++) {
             let nx = x / columns - 0.5, // Normalize X
                 nz = z / rows - 0.5;    // Normalize Z
             let height = layeredNoise(nx, nz);
 
-            // Current point
-            vertices.push(2 * nx, height, 2 * nz);
+            let vertex = [2 * nx, height, 2 * nz];
+            row.push(vertex);
+        }
+        grid.push(row);
+    }
 
-            // Connect to the right neighbor
-            if (x < columns - 1) {
-                let nextHeightX = layeredNoise((x + 1) / columns - 0.5, nz);
-                vertices.push(2 * ((x + 1) / columns) - 0.5, nextHeightX, 2 * nz); // Point to the right
-                vertices.push(2 * nx, height, 2 * nz); // Back to current point
-            }
+    // Connect vertices
+    for (let z = 0; z < rows; z++) {
+        for (let x = 0; x < columns; x++) {
+            let currentVertex = grid[z][x];
+            let rightVertex = grid[z][x + 1];
+            let upperVertex = grid[z + 1][x];
 
-            // Connect to the upper neighbor
-            if (z < rows - 1) {
-                let nextHeightZ = layeredNoise(nx, (z + 1) / rows - 0.5);
-                vertices.push(2 * nx, nextHeightZ, 2 * ((z + 1) / rows) - 0.5); // Point above
-                if (x < columns - 1) {
-                    vertices.push(2 * nx, height, 2 * nz); // Back to current point
-                }
-            }
+            // Current to right
+            vertices.push(...currentVertex, ...rightVertex);
+
+            // Current to upper
+            vertices.push(...currentVertex, ...upperVertex);
         }
     }
+
     return vertices;
 }
-
-
-
 
 function layeredNoise(nx, nz) {
     // Sum multiple layers of noise
@@ -281,8 +302,10 @@ function render() {
 
     gl.uniformMatrix4fv(uProjectionMatrixLocation, false, projectionMatrix);
 
-    gl.drawArrays(gl.LINES, 0, (100 + 1) * (100 + 1));
-
+    let totalLines = (rows - 1) * columns + rows * (columns - 1);
+    let totalVertices = totalLines * 2;
+    
+    gl.drawArrays(gl.LINES, 0, totalVertices);
     requestAnimationFrame(render);
 }
 
