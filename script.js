@@ -125,17 +125,40 @@ function createGrid(rows, columns) {
     let vertices = [];
     for (let z = 0; z <= rows; z++) {
         for (let x = 0; x <= columns; x++) {
-            // Spread vertices along X and Z, with Y as the up-axis
+            let nx = x / columns - 0.5, // Normalize X
+                nz = z / rows - 0.5,    // Normalize Z
+                height = layeredNoise(nx, nz);
+
             vertices.push(
-                2 * x / columns - 1, // X
-                0,                   // Y (up-axis, flat)
-                2 * z / rows - 1     // Z
+                2 * nx,           // X (normalized and stretched)
+                height,           // Y (height based on layered noise)
+                2 * nz            // Z (normalized and stretched)
             );
         }
     }
     return vertices;
 }
 
+function layeredNoise(nx, nz) {
+    // Sum multiple layers of noise
+    let amplitude = 1;
+    let frequency = 1;
+    let noiseSum = 0;
+    let maxAmplitude = 0; // Used for normalizing result
+
+    // Parameters for each layer
+    let layers = 4;
+    let persistence = 0.5;
+
+    for (let i = 0; i < layers; i++) {
+        noiseSum += amplitude * perlin(nx * frequency, nz * frequency, 0);
+        maxAmplitude += amplitude;
+        amplitude *= persistence;
+        frequency *= 2;
+    }
+
+    return noiseSum / maxAmplitude;
+}
 
 
 function render() {

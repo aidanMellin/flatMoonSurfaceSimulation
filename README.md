@@ -76,3 +76,5 @@ Implement basic controls to navigate around the terrain. This could be as simple
     - [ ] Fix rotation to be around camera instead of around origin
     - [ ] Perspective traveling for W/S doesn't regenerate perspective to maintain illusion
     - [ ] Bound it so that the points stay within the screen if possible.
+    - [ ] Zoom?
+    - [ ] Increased fidelity controls?
