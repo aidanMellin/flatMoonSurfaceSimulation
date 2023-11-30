@@ -11,6 +11,11 @@ let lookAtPoint = [0, 1, -1];
 let upVector = [0, 1, 0];
 let rand = Math.random();
 
+let cameraAngleX = 0;
+let cameraAngleY = 0;
+let cameraSpeed = 0.1;
+let rotationSpeed = 0.05;
+
 const vertexShaderSource = `
     attribute vec4 aVertexPosition;
     uniform mat4 uProjectionMatrix;
@@ -68,30 +73,40 @@ function setupCamera() {
     mat4.perspective(projectionMatrix, (fov * Math.PI) / 180, aspect, 0.1, 100.0);
     mat4.lookAt(viewMatrix, cameraPosition, lookAtPoint, upVector);
     mat4.multiply(projectionMatrix, projectionMatrix, viewMatrix);
+    updateCamera();
 }
 
 function setupEventListeners() {
     window.addEventListener('keydown', function(event) {
         switch (event.key) {
-            case 'w':
-                cameraPosition[2] -= 0.1; // Move forward
+            case 'w': // Move forward
+                cameraPosition[0] += cameraSpeed * Math.sin(cameraAngleY);
+                cameraPosition[2] -= cameraSpeed * Math.cos(cameraAngleY);
                 break;
-            case 's':
-                cameraPosition[2] += 0.1; // Move backward
+            case 's': // Move backward
+                cameraPosition[0] -= cameraSpeed * Math.sin(cameraAngleY);
+                cameraPosition[2] += cameraSpeed * Math.cos(cameraAngleY);
                 break;
-            case 'a':
-                cameraPosition[0] -= 0.1; // Move left
+            case 'a': // Move left
+                cameraPosition[0] -= cameraSpeed * Math.cos(cameraAngleY);
+                cameraPosition[2] -= cameraSpeed * Math.sin(cameraAngleY);
                 break;
-            case 'd':
-                cameraPosition[0] += 0.1; // Move right
+            case 'd': // Move right
+                cameraPosition[0] += cameraSpeed * Math.cos(cameraAngleY);
+                cameraPosition[2] += cameraSpeed * Math.sin(cameraAngleY);
                 break;
-            case 'ArrowUp':
-                fov = Math.min(fov + 1, 120); // Increase FOV
+            case 'ArrowLeft': // Rotate left
+                cameraAngleY -= rotationSpeed;
                 break;
-            case 'ArrowDown':
-                fov = Math.max(fov - 1, 1); // Decrease FOV
+            case 'ArrowRight': // Rotate right
+                cameraAngleY += rotationSpeed;
                 break;
-            // Add more cases as needed
+            case 'ArrowUp': // Increase FOV
+                fov = Math.min(fov + 1, 120);
+                break;
+            case 'ArrowDown': // Decrease FOV
+                fov = Math.max(fov - 1, 1);
+                break;
         }
         updateCamera();
     });
@@ -105,8 +120,25 @@ function setupEventListeners() {
 }
 
 function updateCamera() {
-    setupCamera();
+    let aspect = gl.canvas.clientWidth / gl.canvas.clientHeight;
+    mat4.perspective(projectionMatrix, (fov * Math.PI) / 180, aspect, 0.1, 100.0);
+
+    let lookDirection = [
+        Math.sin(cameraAngleY),
+        0,
+        -Math.cos(cameraAngleY)
+    ];
+
+    let lookAtPoint = [
+        cameraPosition[0] + lookDirection[0],
+        cameraPosition[1] + lookDirection[1],
+        cameraPosition[2] + lookDirection[2]
+    ];
+
+    mat4.lookAt(viewMatrix, cameraPosition, lookAtPoint, upVector);
+    mat4.multiply(projectionMatrix, projectionMatrix, viewMatrix);
 }
+
 
 function loadShader(gl, type, source) {
     const shader = gl.createShader(type);
