@@ -18,7 +18,7 @@ function grad(hash, x, y, z) {
     return ((h & 1) === 0 ? u : -u) + ((h & 2) === 0 ? v : -v);
 }
 
-function perlin(x, y, z) {
+function perlin(x, y, z, rand) {
     // Determine grid cell coordinates
     const X = Math.floor(x) & 255,
         Y = Math.floor(y) & 255,
@@ -42,7 +42,7 @@ function perlin(x, y, z) {
     }
 
     for (let i = 255; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
+        const j = Math.floor(rand * (i + 1));
         const temp = permutation[i];
         permutation[i] = permutation[j];
         permutation[j] = temp;

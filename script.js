@@ -9,6 +9,7 @@ let fov = 60; // Field of view in degrees
 let cameraPosition = [0, .3, 1.6];
 let lookAtPoint = [0, 1, -1];
 let upVector = [0, 1, 0];
+let rand = Math.random();
 
 const vertexShaderSource = `
     attribute vec4 aVertexPosition;
@@ -151,7 +152,7 @@ function layeredNoise(nx, nz) {
     let persistence = 0.5;
 
     for (let i = 0; i < layers; i++) {
-        noiseSum += amplitude * perlin(nx * frequency, nz * frequency, 0);
+        noiseSum += amplitude * perlin(nx * frequency, nz * frequency, 0, rand);
         maxAmplitude += amplitude;
         amplitude *= persistence;
         frequency *= 2;
