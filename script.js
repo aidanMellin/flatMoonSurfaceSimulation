@@ -14,7 +14,7 @@ let rand = Math.random();
 let cameraAngleX = 0;
 let cameraAngleY = 0;
 let cameraSpeed = 0.1;
-let rotationSpeed = 0.05;
+let rotationSpeed = 0.005;
 
 const vertexShaderSource = `
     attribute vec4 aVertexPosition;
@@ -77,7 +77,10 @@ function setupCamera() {
 }
 
 function setupEventListeners() {
-    window.addEventListener('keydown', function(event) {
+    let isDragging = false;
+    let previousMousePosition = { x: 0, y: 0 };
+
+    window.addEventListener('keydown', function (event) {
         switch (event.key) {
             case 'w': // Move forward
                 cameraPosition[0] += cameraSpeed * Math.sin(cameraAngleY);
@@ -111,7 +114,62 @@ function setupEventListeners() {
         updateCamera();
     });
 
-    window.addEventListener('resize', function() {
+    // Prevent the default right-click context menu
+    window.addEventListener('contextmenu', function (event) {
+        event.preventDefault();
+    }, false);
+
+    window.addEventListener('mousedown', function(event) {
+        if (event.button === 2) { // Right mouse button
+            isDragging = true;
+            gl.canvas.requestPointerLock(); // Lock the pointer to the canvas
+            previousMousePosition.x = event.clientX;
+            previousMousePosition.y = event.clientY;
+        }
+    });
+
+    // Mouse move event
+    window.addEventListener('mousemove', function(event) {
+        if (isDragging) {
+            const movementX = event.movementX || event.mozMovementX || event.webkitMovementX || 0;
+            const movementY = event.movementY || event.mozMovementY || event.webkitMovementY || 0;
+
+            // Rotate the camera left/right
+            cameraAngleY += movementX * rotationSpeed;
+
+            // Rotate the camera up/down
+            cameraAngleX += movementY * rotationSpeed;
+
+            // Limit vertical look to straight up or straight down
+            cameraAngleX = Math.max(-Math.PI/2, Math.min(Math.PI/2, cameraAngleX));
+
+            updateCamera();
+        }
+    });
+
+    window.addEventListener('wheel', function(event) {
+        const zoomSensitivity = 0.1;
+        const zoomDirection = Math.sign(event.deltaY);
+
+        // Zooming in/out
+        let zoomAmount = zoomDirection * zoomSensitivity;
+        cameraPosition = cameraPosition.map((val, idx) => {
+            if (idx === 1) return val; // Don't change Y-axis
+            return val * (1 - zoomAmount);
+        });
+
+        updateCamera();
+    });
+
+    // Mouse up event
+    window.addEventListener('mouseup', function (event) {
+        if (event.button === 2) { // Right mouse button
+            isDragging = false;
+            document.exitPointerLock(); // Release the pointer lock
+        }
+    });
+
+    window.addEventListener('resize', function () {
         if (resizeCanvasToDisplaySize(gl.canvas)) {
             gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
             setupCamera();
@@ -124,9 +182,9 @@ function updateCamera() {
     mat4.perspective(projectionMatrix, (fov * Math.PI) / 180, aspect, 0.1, 100.0);
 
     let lookDirection = [
-        Math.sin(cameraAngleY),
-        0,
-        -Math.cos(cameraAngleY)
+        Math.sin(cameraAngleY) * Math.cos(cameraAngleX),
+        Math.sin(cameraAngleX),
+        -Math.cos(cameraAngleY) * Math.cos(cameraAngleX)
     ];
 
     let lookAtPoint = [
@@ -138,7 +196,6 @@ function updateCamera() {
     mat4.lookAt(viewMatrix, cameraPosition, lookAtPoint, upVector);
     mat4.multiply(projectionMatrix, projectionMatrix, viewMatrix);
 }
-
 
 function loadShader(gl, type, source) {
     const shader = gl.createShader(type);
@@ -156,21 +213,38 @@ function loadShader(gl, type, source) {
 
 function createGrid(rows, columns) {
     let vertices = [];
-    for (let z = 0; z <= rows; z++) {
-        for (let x = 0; x <= columns; x++) {
-            let nx = x / columns - 0.5, // Normalize X
-                nz = z / rows - 0.5,    // Normalize Z
-                height = layeredNoise(nx, nz);
 
-            vertices.push(
-                2 * nx,           // X (normalized and stretched)
-                height,           // Y (height based on layered noise)
-                2 * nz            // Z (normalized and stretched)
-            );
+    for (let z = 0; z < rows; z++) {
+        for (let x = 0; x < columns; x++) {
+            let nx = x / columns - 0.5, // Normalize X
+                nz = z / rows - 0.5;    // Normalize Z
+            let height = layeredNoise(nx, nz);
+
+            // Current point
+            vertices.push(2 * nx, height, 2 * nz);
+
+            // Connect to the right neighbor
+            if (x < columns - 1) {
+                let nextHeightX = layeredNoise((x + 1) / columns - 0.5, nz);
+                vertices.push(2 * ((x + 1) / columns) - 0.5, nextHeightX, 2 * nz); // Point to the right
+                vertices.push(2 * nx, height, 2 * nz); // Back to current point
+            }
+
+            // Connect to the upper neighbor
+            if (z < rows - 1) {
+                let nextHeightZ = layeredNoise(nx, (z + 1) / rows - 0.5);
+                vertices.push(2 * nx, nextHeightZ, 2 * ((z + 1) / rows) - 0.5); // Point above
+                if (x < columns - 1) {
+                    vertices.push(2 * nx, height, 2 * nz); // Back to current point
+                }
+            }
         }
     }
     return vertices;
 }
+
+
+
 
 function layeredNoise(nx, nz) {
     // Sum multiple layers of noise
@@ -207,7 +281,7 @@ function render() {
 
     gl.uniformMatrix4fv(uProjectionMatrixLocation, false, projectionMatrix);
 
-    gl.drawArrays(gl.POINTS, 0, (100 + 1) * (100 + 1));
+    gl.drawArrays(gl.LINES, 0, (100 + 1) * (100 + 1));
 
     requestAnimationFrame(render);
 }
