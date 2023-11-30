@@ -65,3 +65,10 @@ Adjust noise parameters, grid resolution, and shader effects to achieve the desi
 Add Controls for Viewing the Terrain
 
 Implement basic controls to navigate around the terrain. This could be as simple as rotating the scene or moving a camera.
+
+#TODO
+- [ ] Perspective for Plane
+- [ ] 2D Texture Mapping
+- [ ] 2D to 3D Textures
+- [ ] Lighting
+- [ ] Camera Controls
