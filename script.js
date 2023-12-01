@@ -37,9 +37,10 @@ const fragmentShaderSource = `
         if (uIsStar) {
             gl_FragColor = vec4(1.0, 1.0, 1.0, 1.0); // Bright white for stars
         } else {
-            gl_FragColor = vec4(1.0, 1.0, 1.0, 1.0); // Other color for your grid
+            gl_FragColor = vec4(0.9, 0.9, 0.9, 1.0); // Slightly off-white/gray for terrain
         }
     }`;
+
 
 
 function init() {
@@ -264,23 +265,25 @@ function createGrid(rows, columns) {
         grid.push(row);
     }
 
-    // Connect vertices
+    // Connect vertices to form triangles
     for (let z = 0; z < rows; z++) {
         for (let x = 0; x < columns; x++) {
-            let currentVertex = grid[z][x];
-            let rightVertex = grid[z][x + 1];
-            let upperVertex = grid[z + 1][x];
+            let bottomLeft = grid[z][x];
+            let bottomRight = grid[z][x + 1];
+            let topLeft = grid[z + 1][x];
+            let topRight = grid[z + 1][x + 1];
 
-            // Current to right
-            vertices.push(...currentVertex, ...rightVertex);
+            // Triangle 1
+            vertices.push(...bottomLeft, ...bottomRight, ...topRight);
 
-            // Current to upper
-            vertices.push(...currentVertex, ...upperVertex);
+            // Triangle 2
+            vertices.push(...bottomLeft, ...topRight, ...topLeft);
         }
     }
 
     return vertices;
 }
+
 
 function createStarField(numStars) {
     let stars = [];
@@ -333,7 +336,7 @@ function render() {
     let totalLines = (rows - 1) * columns + rows * (columns - 1);
     let totalVertices = totalLines * 2;
 
-    gl.drawArrays(gl.LINES, 0, totalVertices);
+    gl.drawArrays(gl.TRIANGLES, 0, totalVertices);
 
     gl.bindBuffer(gl.ARRAY_BUFFER, starPositionBuffer);
     gl.vertexAttribPointer(vertexPosition, 3, gl.FLOAT, false, 0, 0);
