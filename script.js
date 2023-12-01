@@ -19,6 +19,8 @@ let rotationSpeed = 0.005;
 let rows = 100;
 let columns = 100;
 
+let renderType;
+
 let starPositionBuffer;
 
 const vertexShaderSource = `
@@ -81,6 +83,8 @@ function init() {
 
     uProjectionMatrixLocation = gl.getUniformLocation(shaderProgram, 'uProjectionMatrix');
 
+    renderType = gl.TRIANGLES;
+
     setupCamera();
     setupEventListeners();
 
@@ -138,6 +142,14 @@ function setupEventListeners() {
                 rows = Math.max(rows - 10, 10); // Prevent it from going too low
                 columns = Math.max(columns - 10, 10);
                 regenerateGrid();
+                break;
+            case "[":
+                renderType = gl.TRIANGLES;
+                render();
+                break;
+            case "]":
+                renderType = gl.LINES;
+                render();
                 break;
         }
         updateCamera();
@@ -336,7 +348,8 @@ function render() {
     let totalLines = (rows - 1) * columns + rows * (columns - 1);
     let totalVertices = totalLines * 2;
 
-    gl.drawArrays(gl.TRIANGLES, 0, totalVertices);
+
+    gl.drawArrays(renderType, 0, totalVertices);
 
     gl.bindBuffer(gl.ARRAY_BUFFER, starPositionBuffer);
     gl.vertexAttribPointer(vertexPosition, 3, gl.FLOAT, false, 0, 0);
