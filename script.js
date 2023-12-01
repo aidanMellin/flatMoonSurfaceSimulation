@@ -19,6 +19,8 @@ let rotationSpeed = 0.005;
 let rows = 100;
 let columns = 100;
 
+let starPositionBuffer;
+
 const vertexShaderSource = `
     attribute vec4 aVertexPosition;
     uniform mat4 uProjectionMatrix;
@@ -29,9 +31,16 @@ const vertexShaderSource = `
     }`;
 
 const fragmentShaderSource = `
+    uniform bool uIsStar;
+
     void main() {
-        gl_FragColor = vec4(1.0, 1.0, 1.0, 1.0); // white color
+        if (uIsStar) {
+            gl_FragColor = vec4(1.0, 1.0, 1.0, 1.0); // Bright white for stars
+        } else {
+            gl_FragColor = vec4(1.0, 1.0, 1.0, 1.0); // Other color for your grid
+        }
     }`;
+
 
 function init() {
     const canvas = document.getElementById('glCanvas');
@@ -54,6 +63,12 @@ function init() {
         alert('Unable to initialize the shader program: ' + gl.getProgramInfoLog(shaderProgram));
         return;
     }
+
+    starPositionBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, starPositionBuffer);
+    let starVertices = createStarField(1000); // Adjust the number of stars as needed
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(starVertices), gl.STATIC_DRAW);
+
 
     projectionMatrix = mat4.create();
     viewMatrix = mat4.create();
@@ -113,16 +128,16 @@ function setupEventListeners() {
             case 'ArrowDown': // Decrease FOV
                 fov = Math.max(fov - 1, 1);
                 break;
-                case '+':
-                    rows = Math.min(rows + 10, 200); // Prevent it from going too high
-                    columns = Math.min(columns + 10, 200);
-                    regenerateGrid();
-                    break;
-                case '-':
-                    rows = Math.max(rows - 10, 10); // Prevent it from going too low
-                    columns = Math.max(columns - 10, 10);
-                    regenerateGrid();
-                    break;
+            case '+':
+                rows = Math.min(rows + 10, 200); // Prevent it from going too high
+                columns = Math.min(columns + 10, 200);
+                regenerateGrid();
+                break;
+            case '-':
+                rows = Math.max(rows - 10, 10); // Prevent it from going too low
+                columns = Math.max(columns - 10, 10);
+                regenerateGrid();
+                break;
         }
         updateCamera();
     });
@@ -132,7 +147,7 @@ function setupEventListeners() {
         event.preventDefault();
     }, false);
 
-    window.addEventListener('mousedown', function(event) {
+    window.addEventListener('mousedown', function (event) {
         if (event.button === 2) { // Right mouse button
             isDragging = true;
             gl.canvas.requestPointerLock(); // Lock the pointer to the canvas
@@ -142,7 +157,7 @@ function setupEventListeners() {
     });
 
     // Mouse move event
-    window.addEventListener('mousemove', function(event) {
+    window.addEventListener('mousemove', function (event) {
         if (isDragging) {
             const movementX = event.movementX || event.mozMovementX || event.webkitMovementX || 0;
             const movementY = event.movementY || event.mozMovementY || event.webkitMovementY || 0;
@@ -154,13 +169,13 @@ function setupEventListeners() {
             cameraAngleX -= movementY * rotationSpeed;
 
             // Limit vertical look to straight up or straight down
-            cameraAngleX = Math.max(-Math.PI/2, Math.min(Math.PI/2, cameraAngleX));
+            cameraAngleX = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, cameraAngleX));
 
             updateCamera();
         }
     });
 
-    window.addEventListener('wheel', function(event) {
+    window.addEventListener('wheel', function (event) {
         const zoomSensitivity = 0.1;
         const zoomDirection = Math.sign(event.deltaY);
 
@@ -267,6 +282,19 @@ function createGrid(rows, columns) {
     return vertices;
 }
 
+function createStarField(numStars) {
+    let stars = [];
+    for (let i = 0; i < numStars; i++) {
+        // Random positions far away
+        let x = (Math.random() - 0.5) * 100;
+        let y = (Math.random() - 0.5) * 100;
+        let z = (Math.random() - 0.5) * 100;
+        stars.push(x, y, z);
+    }
+    return stars;
+}
+
+
 function layeredNoise(nx, nz) {
     // Sum multiple layers of noise
     let amplitude = 1;
@@ -304,8 +332,13 @@ function render() {
 
     let totalLines = (rows - 1) * columns + rows * (columns - 1);
     let totalVertices = totalLines * 2;
-    
+
     gl.drawArrays(gl.LINES, 0, totalVertices);
+
+    gl.bindBuffer(gl.ARRAY_BUFFER, starPositionBuffer);
+    gl.vertexAttribPointer(vertexPosition, 3, gl.FLOAT, false, 0, 0);
+    gl.drawArrays(gl.POINTS, 0, 1000); // Number of stars
+
     requestAnimationFrame(render);
 }
 
