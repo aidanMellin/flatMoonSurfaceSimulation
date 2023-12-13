@@ -67,28 +67,48 @@ function init() {
         return;
     }
 
-    starPositionBuffer = gl.createBuffer();
-    gl.bindBuffer(gl.ARRAY_BUFFER, starPositionBuffer);
-    let starVertices = createStarField(1000); // Adjust the number of stars as needed
-    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(starVertices), gl.STATIC_DRAW);
+    texture = gl.createTexture();
+      
+        const image = new Image();
 
 
-    projectionMatrix = mat4.create();
-    viewMatrix = mat4.create();
-
-    positionBuffer = gl.createBuffer();
-    gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
-    let vertices = createGrid(100, 100);
-    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STATIC_DRAW);
-
-    uProjectionMatrixLocation = gl.getUniformLocation(shaderProgram, 'uProjectionMatrix');
-
-    renderType = gl.TRIANGLES;
-
-    setupCamera();
-    setupEventListeners();
-
-    render();
+        image.src = 'moontext.png'; // note: file in same dir as other files for program
+        image.decode();
+        // img is ready to use: this console write is left here to help
+        // others with potential debugging when changing this function
+        console.log(`width: ${image.width}, height: ${image.height}`);
+        gl.bindTexture(gl.TEXTURE_2D, texture);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+        gl.bindTexture(gl.TEXTURE_2D, null);
+        
+        // create and bind your current object
+        starPositionBuffer = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, starPositionBuffer);
+        let starVertices = createStarField(1000); // Adjust the number of stars as needed
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(starVertices), gl.STATIC_DRAW);
+    
+    
+        projectionMatrix = mat4.create();
+        viewMatrix = mat4.create();
+    
+        positionBuffer = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+        let vertices = createGrid(100, 100);
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STATIC_DRAW);
+    
+        uProjectionMatrixLocation = gl.getUniformLocation(shaderProgram, 'uProjectionMatrix');
+    
+        renderType = gl.TRIANGLES;
+    
+        setupCamera();
+        setupEventListeners();
+        // do a draw
+        render();
+       
+     
+    //render();
 }
 
 function setupCamera() {
