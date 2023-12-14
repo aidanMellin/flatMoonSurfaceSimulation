@@ -1,9 +1,15 @@
 // Global variables
 let gl;
+let myIndexBuffer;
+let myVAO;
+let grid = [];
+let myVertexBuffer;
+let myUVBuffer;
 let shaderProgram;
 let positionBuffer;
 let projectionMatrix;
 let viewMatrix;
+let vertices = [];
 let uProjectionMatrixLocation;
 let fov = 60; // Field of view in degrees
 let cameraPosition = [0, .3, 1.6];
@@ -15,6 +21,14 @@ let cameraAngleX = 0;
 let cameraAngleY = 0;
 let cameraSpeed = 0.1;
 let rotationSpeed = 0.005;
+
+  // Other globals with default values;
+  var division1 = 3;
+  var division2 = 1;
+  var updateDisplay = true;
+  var anglesReset = [30.0, 30.0, 0.0];
+  var angles = [30.0, 30.0, 0.0];
+  var angleInc = 5.0;
 
 let rows = 100;
 let columns = 100;
@@ -47,7 +61,7 @@ const fragmentShaderSource = `
 
 function init() {
     const canvas = document.getElementById('glCanvas');
-    gl = canvas.getContext('webgl');
+    gl = canvas.getContext('webgl2');
 
     if (!gl) {
         alert('Unable to initialize WebGL. Your browser may not support it.');
@@ -95,13 +109,14 @@ function init() {
     
         positionBuffer = gl.createBuffer();
         gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
-        let vertices = createGrid(100, 100);
+        vertices = createGrid(100, 100);
         gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STATIC_DRAW);
     
         uProjectionMatrixLocation = gl.getUniformLocation(shaderProgram, 'uProjectionMatrix');
     
         renderType = gl.TRIANGLES;
     
+        createNewShape();
         setupCamera();
         setupEventListeners();
         // do a draw
@@ -280,8 +295,6 @@ function loadShader(gl, type, source) {
 }
 
 function createGrid(rows, columns) {
-    let grid = [];
-    let vertices = [];
 
     // Create vertices and store them in a grid
     for (let z = 0; z <= rows; z++) {
@@ -314,6 +327,54 @@ function createGrid(rows, columns) {
     }
 
     return vertices;
+}
+
+// general call to make and bind a new object based on current
+  // settings..Basically a call to shape specfic calls in cgIshape.js
+  function createNewShape() {
+      
+    // clear your points and elements
+    points = [];
+    indices = [];
+    uvs = [];
+
+    // make your shape based on type
+    createGrid(100,100);
+    
+    //create and bind VAO
+    if (myVAO == null) myVAO = gl.createVertexArray();
+    gl.bindVertexArray(myVAO);
+    
+    // create and bind vertex buffer
+    if (myVertexBuffer == null) myVertexBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, myVertexBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(points), gl.STATIC_DRAW);
+    gl.enableVertexAttribArray(shaderProgram.aVertexPosition);
+    gl.vertexAttribPointer(shaderProgram.aVertexPosition, 4, gl.FLOAT, false, 0, 0);
+    
+    // create and bind uv buffer
+    if (myUVBuffer == null) myUVBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, myUVBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(uvs), gl.STATIC_DRAW);
+    gl.enableVertexAttribArray(shaderProgram.aVertexTextureCoords);
+    // note that texture uv's are 2d, which is why there's a 2 below
+    gl.vertexAttribPointer(shaderProgram.aVertexTextureCoords, 2, gl.FLOAT, false, 0, 0);
+
+    // uniform values
+    gl.uniform3fv (shaderProgram.uTheta, new Float32Array(angles));
+   
+    // Setting up the IBO
+    if (myIndexBuffer == null) myIndexBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, myIndexBuffer);
+    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(indices), gl.STATIC_DRAW);
+
+    // Clean
+    gl.bindVertexArray(null);
+    gl.bindBuffer(gl.ARRAY_BUFFER, null);
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
+        
+    // indicate a redraw is required.
+    updateDisplay = true;
 }
 
 
