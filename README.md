@@ -71,7 +71,6 @@ Implement basic controls to navigate around the terrain. This could be as simple
     - [ ] See Camera controls
 - [ ] 2D Texture Mapping
 - [ ] 2D to 3D Textures (Unsure if this is separate step)
-- [ ] Lighting
 - [ ] Camera Controls
     - [x] Fix rotation to be around camera instead of around origin
     - [x] Perspective traveling for W/S doesn't regenerate perspective to maintain illusion
