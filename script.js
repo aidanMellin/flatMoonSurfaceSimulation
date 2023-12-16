@@ -67,6 +67,20 @@ void main() {
 }
 `;
 
+function loadShader(gl, type, source) {
+    const shader = gl.createShader(type);
+    gl.shaderSource(shader, source);
+    gl.compileShader(shader);
+
+    if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+        alert('An error occurred compiling the shaders: ' + gl.getShaderInfoLog(shader));
+        gl.deleteShader(shader);
+        return null;
+    }
+
+    return shader;
+}
+
 function loadTexture(gl, url) {
     return new Promise((resolve, reject) => {
         const texture = gl.createTexture();
@@ -90,238 +104,7 @@ function loadTexture(gl, url) {
     });
 }
 
-async function init() {
-    const canvas = document.getElementById('glCanvas');
-    gl = canvas.getContext('webgl2');
 
-    if (!gl) {
-        alert('Unable to initialize WebGL. Your browser may not support it.');
-        return;
-    }
-
-    const vertexShader = loadShader(gl, gl.VERTEX_SHADER, vertexShaderSource);
-    const fragmentShader = loadShader(gl, gl.FRAGMENT_SHADER, fragmentShaderSource);
-
-    shaderProgram = gl.createProgram();
-    gl.attachShader(shaderProgram, vertexShader);
-    gl.attachShader(shaderProgram, fragmentShader);
-    gl.linkProgram(shaderProgram);
-    shaderProgram.vertexPosition = gl.getAttribLocation(shaderProgram, 'aVertexPosition');
-    shaderProgram.aVertexTextureCoords = gl.getAttribLocation(shaderProgram, 'aVertexTextureCoords');
-    shaderProgram.uUseTexture = gl.getUniformLocation(shaderProgram, "uUseTexture");
-
-    if (!gl.getProgramParameter(shaderProgram, gl.LINK_STATUS)) {
-        alert('Unable to initialize the shader program: ' + gl.getProgramInfoLog(shaderProgram));
-        return;
-    }
-
-    texture = gl.createTexture();
-
-    try {
-        texture = await loadTexture(gl, 'blueSquareStriped.jpeg');
-    } catch (error) {
-        alert('Texture loading failed: ' + error.message);
-        return;
-    }
-
-    // create and bind your current object
-    starPositionBuffer = gl.createBuffer();
-    gl.bindBuffer(gl.ARRAY_BUFFER, starPositionBuffer);
-    let starVertices = createStarField(1000); // Adjust the number of stars as needed
-    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(starVertices), gl.STATIC_DRAW);
-
-
-    projectionMatrix = mat4.create();
-    viewMatrix = mat4.create();
-
-    positionBuffer = gl.createBuffer();
-    gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
-    let { vertices, uvs } = createGrid(rows, columns);
-    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STATIC_DRAW);
-
-    uProjectionMatrixLocation = gl.getUniformLocation(shaderProgram, 'uProjectionMatrix');
-
-    renderType = gl.TRIANGLES;
-
-    gl.enable(gl.DEPTH_TEST);
-
-    createNewShape();
-    setupCamera();
-    setupEventListeners();
-    // do a draw
-    render();
-
-
-    //render();
-}
-
-function setupCamera() {
-    let aspect = gl.canvas.clientWidth / gl.canvas.clientHeight;
-    mat4.perspective(projectionMatrix, (fov * Math.PI) / 180, aspect, 0.1, 100.0);
-    mat4.lookAt(viewMatrix, cameraPosition, lookAtPoint, upVector);
-    mat4.multiply(projectionMatrix, projectionMatrix, viewMatrix);
-    updateCamera();
-}
-
-function setupEventListeners() {
-    let isDragging = false;
-    let previousMousePosition = { x: 0, y: 0 };
-
-    window.addEventListener('keydown', function (event) {
-        switch (event.key) {
-            case 'w': // Move forward
-                cameraPosition[0] += cameraSpeed * Math.sin(cameraAngleY);
-                cameraPosition[2] -= cameraSpeed * Math.cos(cameraAngleY);
-                break;
-            case 's': // Move backward
-                cameraPosition[0] -= cameraSpeed * Math.sin(cameraAngleY);
-                cameraPosition[2] += cameraSpeed * Math.cos(cameraAngleY);
-                break;
-            case 'a': // Move left
-                cameraPosition[0] -= cameraSpeed * Math.cos(cameraAngleY);
-                cameraPosition[2] -= cameraSpeed * Math.sin(cameraAngleY);
-                break;
-            case 'd': // Move right
-                cameraPosition[0] += cameraSpeed * Math.cos(cameraAngleY);
-                cameraPosition[2] += cameraSpeed * Math.sin(cameraAngleY);
-                break;
-            case 'ArrowLeft': // Rotate left
-                cameraAngleY -= rotationSpeed;
-                break;
-            case 'ArrowRight': // Rotate right
-                cameraAngleY += rotationSpeed;
-                break;
-            case 'ArrowUp': // Increase FOV
-                fov = Math.min(fov + 1, 120);
-                break;
-            case 'ArrowDown': // Decrease FOV
-                fov = Math.max(fov - 1, 1);
-                break;
-            case '+':
-                rows = Math.min(rows + 10, 200); // Prevent it from going too high
-                columns = Math.min(columns + 10, 200);
-                regenerateGrid();
-                break;
-            case '-':
-                rows = Math.max(rows - 10, 10); // Prevent it from going too low
-                columns = Math.max(columns - 10, 10);
-                regenerateGrid();
-                break;
-            case "[":
-                renderType = gl.TRIANGLES;
-                render();
-                break;
-            case "]":
-                renderType = gl.LINES;
-                render();
-                break;
-        }
-        updateCamera();
-    });
-
-    // Prevent the default right-click context menu
-    window.addEventListener('contextmenu', function (event) {
-        event.preventDefault();
-    }, false);
-
-    window.addEventListener('mousedown', function (event) {
-        if (event.button === 2) { // Right mouse button
-            isDragging = true;
-            gl.canvas.requestPointerLock(); // Lock the pointer to the canvas
-            previousMousePosition.x = event.clientX;
-            previousMousePosition.y = event.clientY;
-        }
-    });
-
-    // Mouse move event
-    window.addEventListener('mousemove', function (event) {
-        if (isDragging) {
-            const movementX = event.movementX || event.mozMovementX || event.webkitMovementX || 0;
-            const movementY = event.movementY || event.mozMovementY || event.webkitMovementY || 0;
-
-            // Rotate the camera left/right
-            cameraAngleY += movementX * rotationSpeed;
-
-            // Rotate the camera up/down
-            cameraAngleX -= movementY * rotationSpeed;
-
-            // Limit vertical look to straight up or straight down
-            cameraAngleX = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, cameraAngleX));
-
-            updateCamera();
-        }
-    });
-
-    window.addEventListener('wheel', function (event) {
-        const zoomSensitivity = 0.1;
-        const zoomDirection = Math.sign(event.deltaY);
-
-        // Zooming in/out
-        let zoomAmount = zoomDirection * zoomSensitivity;
-        cameraPosition = cameraPosition.map((val, idx) => {
-            if (idx === 1) return val; // Don't change Y-axis
-            return val * (1 - zoomAmount);
-        });
-
-        updateCamera();
-    });
-
-    // Mouse up event
-    window.addEventListener('mouseup', function (event) {
-        if (event.button === 2) { // Right mouse button
-            isDragging = false;
-            document.exitPointerLock(); // Release the pointer lock
-        }
-    });
-
-    window.addEventListener('resize', function () {
-        if (resizeCanvasToDisplaySize(gl.canvas)) {
-            gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
-            setupCamera();
-        }
-    });
-}
-
-function regenerateGrid() {
-    let vertices = createGrid(rows, columns);
-    gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
-    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STATIC_DRAW);
-}
-
-
-function updateCamera() {
-    let aspect = gl.canvas.clientWidth / gl.canvas.clientHeight;
-    mat4.perspective(projectionMatrix, (fov * Math.PI) / 180, aspect, 0.1, 100.0);
-
-    let lookDirection = [
-        Math.sin(cameraAngleY) * Math.cos(cameraAngleX),
-        Math.sin(cameraAngleX),
-        -Math.cos(cameraAngleY) * Math.cos(cameraAngleX)
-    ];
-
-    let lookAtPoint = [
-        cameraPosition[0] + lookDirection[0],
-        cameraPosition[1] + lookDirection[1],
-        cameraPosition[2] + lookDirection[2]
-    ];
-
-    mat4.lookAt(viewMatrix, cameraPosition, lookAtPoint, upVector);
-    mat4.multiply(projectionMatrix, projectionMatrix, viewMatrix);
-}
-
-function loadShader(gl, type, source) {
-    const shader = gl.createShader(type);
-    gl.shaderSource(shader, source);
-    gl.compileShader(shader);
-
-    if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
-        alert('An error occurred compiling the shaders: ' + gl.getShaderInfoLog(shader));
-        gl.deleteShader(shader);
-        return null;
-    }
-
-    return shader;
-}
 
 function createGrid(rows, columns) {
     let vertices = []; // Array to store the vertices for WebGL
@@ -336,7 +119,7 @@ function createGrid(rows, columns) {
             let nz = z / rows - 0.5; // Normalize Z
             let height = layeredNoise(nx, nz); // Get the height from the noise function
 
-            let vertex = [2 * nx, height, 2 * nz]; // Create the vertex
+            let vertex = [2 *  nx, height, 2 * nz]; // Create the vertex
             row.push(vertex); // Add it to the row
         }
         grid.push(row); // Add the row to the grid
@@ -371,6 +154,11 @@ function createGrid(rows, columns) {
     return { vertices, uvs };
 }
 
+function regenerateGrid() {
+    let vertices = createGrid(rows, columns);
+    gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STATIC_DRAW);
+}
 
 // general call to make and bind a new object based on current
 // settings..Basically a call to shape specfic calls in cgIshape.js
@@ -434,28 +222,67 @@ function createStarField(numStars) {
     return stars;
 }
 
+async function init() {
+    const canvas = document.getElementById('glCanvas');
+    gl = canvas.getContext('webgl2');
 
-function layeredNoise(nx, nz) {
-    // Sum multiple layers of noise
-    let amplitude = 1;
-    let frequency = 1;
-    let noiseSum = 0;
-    let maxAmplitude = 0; // Used for normalizing result
-
-    // Parameters for each layer
-    let layers = 4;
-    let persistence = 0.5;
-
-    for (let i = 0; i < layers; i++) {
-        noiseSum += amplitude * perlin(nx * frequency, nz * frequency, 0, rand);
-        maxAmplitude += amplitude;
-        amplitude *= persistence;
-        frequency *= 2;
+    if (!gl) {
+        alert('Unable to initialize WebGL. Your browser may not support it.');
+        return;
     }
 
-    return noiseSum / maxAmplitude;
-}
+    const vertexShader = loadShader(gl, gl.VERTEX_SHADER, vertexShaderSource);
+    const fragmentShader = loadShader(gl, gl.FRAGMENT_SHADER, fragmentShaderSource);
 
+    shaderProgram = gl.createProgram();
+    gl.attachShader(shaderProgram, vertexShader);
+    gl.attachShader(shaderProgram, fragmentShader);
+    gl.linkProgram(shaderProgram);
+    shaderProgram.vertexPosition = gl.getAttribLocation(shaderProgram, 'aVertexPosition');
+    shaderProgram.aVertexTextureCoords = gl.getAttribLocation(shaderProgram, 'aVertexTextureCoords');
+    shaderProgram.uUseTexture = gl.getUniformLocation(shaderProgram, "uUseTexture");
+
+    if (!gl.getProgramParameter(shaderProgram, gl.LINK_STATUS)) {
+        alert('Unable to initialize the shader program: ' + gl.getProgramInfoLog(shaderProgram));
+        return;
+    }
+
+    texture = gl.createTexture();
+
+    try {
+        texture = await loadTexture(gl, 'blueSquareStriped.jpeg');
+    } catch (error) {
+        alert('Texture loading failed: ' + error.message);
+        return;
+    }
+
+    // create and bind your current object
+    starPositionBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, starPositionBuffer);
+    let starVertices = createStarField(1000); // Adjust the number of stars as needed
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(starVertices), gl.STATIC_DRAW);
+
+
+    projectionMatrix = mat4.create();
+    viewMatrix = mat4.create();
+
+    positionBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+    let { vertices, uvs } = createGrid(rows, columns);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STATIC_DRAW);
+
+    uProjectionMatrixLocation = gl.getUniformLocation(shaderProgram, 'uProjectionMatrix');
+
+    renderType = gl.TRIANGLES;
+
+    gl.enable(gl.DEPTH_TEST);
+
+    createNewShape();
+    setupCamera();
+    setupEventListeners();
+    // do a draw
+    render();
+}
 
 function render() {
     gl.clearColor(0.0, 0.0, 0.0, 1.0);
@@ -487,18 +314,6 @@ function render() {
     gl.drawArrays(gl.POINTS, 0, 1000); // Number of stars
 
     requestAnimationFrame(render);
-}
-
-
-function resizeCanvasToDisplaySize(canvas) {
-    const width = canvas.clientWidth;
-    const height = canvas.clientHeight;
-    if (canvas.width !== width || canvas.height !== height) {
-        canvas.width = width;
-        canvas.height = height;
-        return true;
-    }
-    return false;
 }
 
 // Call the init function when the window loads

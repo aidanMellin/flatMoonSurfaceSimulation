@@ -68,3 +68,24 @@ function perlin(x, y, z, rand) {
             v),
         w);
 }
+
+function layeredNoise(nx, nz) {
+    // Sum multiple layers of noise
+    let amplitude = 1;
+    let frequency = 1;
+    let noiseSum = 0;
+    let maxAmplitude = 0; // Used for normalizing result
+
+    // Parameters for each layer
+    let layers = 4;
+    let persistence = 0.5;
+
+    for (let i = 0; i < layers; i++) {
+        noiseSum += amplitude * perlin(nx * frequency, nz * frequency, 0, rand);
+        maxAmplitude += amplitude;
+        amplitude *= persistence;
+        frequency *= 2;
+    }
+
+    return noiseSum / maxAmplitude;
+}
