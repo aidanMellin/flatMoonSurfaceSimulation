@@ -4,7 +4,7 @@ let myIndexBuffer;
 let myVAO;
 let grid = [];
 let myVertexBuffer;
-let myUVBuffer;
+let uvBuffer;
 let shaderProgram;
 let positionBuffer;
 let projectionMatrix;
@@ -60,7 +60,8 @@ uniform bool uUseTexture; // Flag to enable/disable texture
 
 void main() {
     if (uUseTexture) {
-        gl_FragColor = texture2D(uTexture, vTextureCoords); // Apply texture
+        gl_FragColor = texture2D(uTexture, vTextureCoords);
+        // gl_FragColor = vec4(vTextureCoords, 1.0, 1.0);
     } else {
         gl_FragColor = vec4(1.0); // White color for stars
     }
@@ -88,13 +89,15 @@ function loadTexture(gl, url) {
         image.onload = () => {
             gl.bindTexture(gl.TEXTURE_2D, texture);
             gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
-            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-
+            // Set texture wrapping mode
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); // S axis (U in UV)
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE); // T axis (V in UV)
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR); // or gl.NEAREST, gl.LINEAR_MIPMAP_LINEAR maybe ?
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR); // or gl.NEAREST ?
             gl.bindTexture(gl.TEXTURE_2D, null);
             resolve(texture);
+            console.log("Texture loaded: " + url);
+            console.log("Texture size: " + image.width + " x " + image.height);
             console.log("Texture loaded");
         };
         image.onerror = () => {
@@ -104,49 +107,46 @@ function loadTexture(gl, url) {
     });
 }
 
-
-
 function createGrid(rows, columns) {
     let vertices = []; // Array to store the vertices for WebGL
     let uvs = []; // Array for UVs
     grid = []; // Clear the grid array
 
-    // Create vertices and store them in a grid
+    // Create vertices and UVs
     for (let z = 0; z <= rows; z++) {
-        let row = [];
         for (let x = 0; x <= columns; x++) {
-            let nx = x / columns - 0.5; // Normalize X
-            let nz = z / rows - 0.5; // Normalize Z
+            let nx = (x / columns) - 0.5; // Normalize X to range [-0.5, 0.5]
+            let nz = (z / rows) - 0.5; // Normalize Z to range [-0.5, 0.5]
             let height = layeredNoise(nx, nz); // Get the height from the noise function
 
-            let vertex = [2 *  nx, height, 2 * nz]; // Create the vertex
-            row.push(vertex); // Add it to the row
+            let vertex = [2 * nx, height, 2 * nz]; // Scale normalized position by 2
+            grid.push(vertex); // Add it to the grid array
+
+            // Calculate and push UV coordinates
+            let u = x / columns;
+            let v = z / rows;
+            // console.log(`\nu - ${u}\nv - ${v}\n`);
+            uvs.push(u, v);
+
+            if ((z === 0 && x === 0) || (z === rows && x === columns)) {
+                console.log("UV at (" + x + ", " + z + "): " + u + ", " + v);
+            }
         }
-        grid.push(row); // Add the row to the grid
     }
 
     // Connect vertices to form triangles
     for (let z = 0; z < rows; z++) {
         for (let x = 0; x < columns; x++) {
-            let bottomLeft = grid[z][x];
-            let bottomRight = grid[z][x + 1];
-            let topLeft = grid[z + 1][x];
-            let topRight = grid[z + 1][x + 1];
+            let bottomLeft = grid[z * (columns + 1) + x];
+            let topLeft = grid[(z + 1) * (columns + 1) + x];
+            let bottomRight = grid[z * (columns + 1) + x + 1];
+            let topRight = grid[(z + 1) * (columns + 1) + x + 1];
 
             // Triangle 1
-            vertices.push(...bottomLeft, ...bottomRight, ...topRight);
+            vertices.push(...bottomLeft, ...topLeft, ...bottomRight);
 
             // Triangle 2
-            vertices.push(...bottomLeft, ...topRight, ...topLeft);
-
-            let u1 = x / columns, v1 = z / rows;
-            let u2 = (x + 1) / columns, v2 = (z + 1) / rows;
-
-            // Triangle 1 UVs
-            uvs.push(u1, v1, u2, v1, u2, v2);
-
-            // Triangle 2 UVs
-            uvs.push(u1, v1, u2, v2, u1, v2);
+            vertices.push(...topLeft, ...topRight, ...bottomRight);
         }
     }
 
@@ -172,10 +172,17 @@ function createNewShape() {
     let shapeData = createGrid(rows, columns);
     points = shapeData.vertices;
     uvs = shapeData.uvs;
+    console.log(shapeData.uvs);
+
+    let totalVertices = vertices.length / 3; // If each vertex has 3 components (x, y, z)
+
 
     //create and bind VAO
     if (myVAO == null) myVAO = gl.createVertexArray();
     gl.bindVertexArray(myVAO);
+
+    uvBuffer = gl.createBuffer(); // Ensure uvBuffer is created
+    gl.bindBuffer(gl.ARRAY_BUFFER, uvBuffer);
 
     // create and bind vertex buffer
     if (myVertexBuffer == null) myVertexBuffer = gl.createBuffer();
@@ -184,13 +191,10 @@ function createNewShape() {
     gl.enableVertexAttribArray(shaderProgram.aVertexPosition);
     gl.vertexAttribPointer(shaderProgram.aVertexPosition, 4, gl.FLOAT, false, 0, 0);
 
-    // Set up UV buffer
-    // create and bind UV buffer
-    if (myUVBuffer == null) myUVBuffer = gl.createBuffer();
-    gl.bindBuffer(gl.ARRAY_BUFFER, myUVBuffer);
-    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(uvs), gl.STATIC_DRAW);
-    gl.enableVertexAttribArray(shaderProgram.aVertexTextureCoords);
+    // gl.bindBuffer(gl.ARRAY_BUFFER, uvBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(uvs), gl.STATIC_DRAW); // Buffer the UV data
     gl.vertexAttribPointer(shaderProgram.aVertexTextureCoords, 2, gl.FLOAT, false, 0, 0);
+    gl.enableVertexAttribArray(shaderProgram.aVertexTextureCoords);
 
     // uniform values
     gl.uniform3fv(shaderProgram.uTheta, new Float32Array(angles));
@@ -204,9 +208,6 @@ function createNewShape() {
     gl.bindVertexArray(null);
     gl.bindBuffer(gl.ARRAY_BUFFER, null);
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
-
-    // indicate a redraw is required.
-    updateDisplay = true;
 }
 
 
@@ -240,11 +241,14 @@ async function init() {
     gl.linkProgram(shaderProgram);
     shaderProgram.vertexPosition = gl.getAttribLocation(shaderProgram, 'aVertexPosition');
     shaderProgram.aVertexTextureCoords = gl.getAttribLocation(shaderProgram, 'aVertexTextureCoords');
+
     shaderProgram.uUseTexture = gl.getUniformLocation(shaderProgram, "uUseTexture");
 
     if (!gl.getProgramParameter(shaderProgram, gl.LINK_STATUS)) {
         alert('Unable to initialize the shader program: ' + gl.getProgramInfoLog(shaderProgram));
         return;
+    } else {
+        console.log("Shader Program linked correctly.")
     }
 
     texture = gl.createTexture();
