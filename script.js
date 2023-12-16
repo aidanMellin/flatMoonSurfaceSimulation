@@ -112,49 +112,108 @@ function loadTexture(gl, url) {
 function createGrid(rows, columns) {
     let vertices = []; // Array to store the vertices for WebGL
     let uvs = []; // Array for UVs
+    let indices = []; // Array for indices
     grid = []; // Clear the grid array
 
     // Create vertices and UVs
     for (let z = 0; z <= rows; z++) {
         for (let x = 0; x <= columns; x++) {
-            let nx = (x / columns) - 0.5; // Normalize X to range [-0.5, 0.5]
-            let nz = (z / rows) - 0.5; // Normalize Z to range [-0.5, 0.5]
-            let height = layeredNoise(nx, nz); // Get the height from the noise function
+            let nx = (x / columns); // Normalize X to range [0, 1]
+            let nz = (z / rows); // Normalize Z to range [0, 1]
+            let height = layeredNoise(nx * 2 - 1, nz * 2 - 1); // Scale to [-1, 1] for noise
 
-            let vertex = [2 * nx, height, 2 * nz]; // Scale normalized position by 2
-            grid.push(vertex); // Add it to the grid array
+            let vertex = [nx * 2 - 1, height, nz * 2 - 1]; // Position vertex within [-1, 1] range in X and Z
+            vertices.push(...vertex); // Add it to the vertices array
 
             // Calculate and push UV coordinates
             let u = x / columns;
             let v = z / rows;
-            // console.log(`\nu - ${u}\nv - ${v}\n`);
             uvs.push(u, v);
 
+            // Log the first and last UV coordinates
             if ((z === 0 && x === 0) || (z === rows && x === columns)) {
                 console.log("UV at (" + x + ", " + z + "): " + u + ", " + v);
             }
         }
     }
 
-    // Connect vertices to form triangles
+    // Connect vertices to form triangles (using indices)
     for (let z = 0; z < rows; z++) {
         for (let x = 0; x < columns; x++) {
-            let bottomLeft = grid[z * (columns + 1) + x];
-            let topLeft = grid[(z + 1) * (columns + 1) + x];
-            let bottomRight = grid[z * (columns + 1) + x + 1];
-            let topRight = grid[(z + 1) * (columns + 1) + x + 1];
+            let bottomLeft = z * (columns + 1) + x;
+            let topLeft = (z + 1) * (columns + 1) + x;
+            let bottomRight = z * (columns + 1) + x + 1;
+            let topRight = (z + 1) * (columns + 1) + x + 1;
 
             // Triangle 1
-            vertices.push(...bottomLeft, ...topLeft, ...bottomRight);
+            indices.push(bottomLeft, topLeft, bottomRight);
 
             // Triangle 2
-            vertices.push(...topLeft, ...topRight, ...bottomRight);
+            indices.push(topLeft, topRight, bottomRight);
         }
     }
 
-    // Return the vertices and uvs
-    return { vertices, uvs };
+    // Return the vertices, uvs, and indices
+    return { vertices, uvs, indices };
 }
+
+function createLandscape(rows, columns) {
+    const positions = [];
+    const uvs = [];
+    const indices = [];
+    const size = 1; // Size of each grid cell
+
+    // Generate positions, UVs, and indices
+    for (let z = 0; z <= rows; z++) {
+        for (let x = 0; x <= columns; x++) {
+            // Position
+            const xPos = (x - columns * 0.5) * size;
+            const zPos = (z - rows * 0.5) * size;
+            const yPos = layeredNoise(xPos, zPos); // Apply height using noise
+            positions.push(xPos, yPos, zPos);
+
+            // UVs
+            const u = x / columns;
+            const v = z / rows;
+            uvs.push(u, v);
+
+            // Indices (two triangles per grid cell)
+            if (x < columns && z < rows) {
+                const a = x + z * (columns + 1);
+                const b = x + (z + 1) * (columns + 1);
+                const c = (x + 1) + (z + 1) * (columns + 1);
+                const d = (x + 1) + z * (columns + 1);
+
+                // Triangle 1
+                indices.push(a, b, d);
+                // Triangle 2
+                indices.push(b, c, d);
+            }
+        }
+    }
+
+    // Create buffers
+    const positionBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(positions), gl.STATIC_DRAW);
+
+    const uvBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, uvBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(uvs), gl.STATIC_DRAW);
+
+    const indexBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
+    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(indices), gl.STATIC_DRAW);
+
+    return {
+        positionBuffer,
+        uvBuffer,
+        indexBuffer,
+        count: indices.length
+    };
+}
+
+
 
 function regenerateGrid() {
     let vertices = createGrid(rows, columns);
@@ -231,6 +290,9 @@ function createStarField(numStars) {
     return stars;
 }
 
+
+
+
 async function init() {
     const canvas = document.getElementById('glCanvas');
     gl = canvas.getContext('webgl2');
@@ -247,19 +309,17 @@ async function init() {
     gl.attachShader(shaderProgram, vertexShader);
     gl.attachShader(shaderProgram, fragmentShader);
     gl.linkProgram(shaderProgram);
-    shaderProgram.vertexPosition = gl.getAttribLocation(shaderProgram, 'aVertexPosition');
-    shaderProgram.aVertexTextureCoords = gl.getAttribLocation(shaderProgram, 'aVertexTextureCoords');
-
-    shaderProgram.uUseTexture = gl.getUniformLocation(shaderProgram, "uUseTexture");
 
     if (!gl.getProgramParameter(shaderProgram, gl.LINK_STATUS)) {
         alert('Unable to initialize the shader program: ' + gl.getProgramInfoLog(shaderProgram));
         return;
-    } else {
-        console.log("Shader Program linked correctly.")
     }
 
-    texture = gl.createTexture();
+    // Initialize shader attribute and uniform locations
+    shaderProgram.vertexPosition = gl.getAttribLocation(shaderProgram, 'aVertexPosition');
+    shaderProgram.aVertexTextureCoords = gl.getAttribLocation(shaderProgram, 'aVertexTextureCoords');
+    shaderProgram.uUseTexture = gl.getUniformLocation(shaderProgram, "uUseTexture");
+    uProjectionMatrixLocation = gl.getUniformLocation(shaderProgram, 'uProjectionMatrix');
 
     try {
         texture = await loadTexture(gl, 'moontext.jpeg');
@@ -268,73 +328,99 @@ async function init() {
         return;
     }
 
-    // create and bind your current object
+    // Create the landscape and star field
+    landscape = createLandscape(rows, columns);
+    // In your init function
     starPositionBuffer = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, starPositionBuffer);
-    let starVertices = createStarField(1000); // Adjust the number of stars as needed
+    starVertices = createStarField(1000); // Adjust the number of stars as needed
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(starVertices), gl.STATIC_DRAW);
 
-
+    // Setup the camera and projection matrix
     projectionMatrix = mat4.create();
     viewMatrix = mat4.create();
+    setupCamera();
 
-    positionBuffer = gl.createBuffer();
-    gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
-    let { vertices, uvs } = createGrid(rows, columns);
-    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STATIC_DRAW);
+    // Set event listeners for user interaction
+    setupEventListeners();
 
-    uProjectionMatrixLocation = gl.getUniformLocation(shaderProgram, 'uProjectionMatrix');
-
-    renderType = gl.TRIANGLES;
-
+    // Enable depth testing
     gl.enable(gl.DEPTH_TEST);
 
-    createNewShape();
-    setupCamera();
-    setupEventListeners();
-    // do a draw
+    // Start the rendering loop
     render();
 }
 
+
 function render() {
+    if (!gl) {
+        console.error('WebGL context is not available.');
+        return;
+    }
+
+    // Clear the canvas
     gl.clearColor(0.0, 0.0, 0.0, 1.0);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
+    // Use the shader program
     gl.useProgram(shaderProgram);
 
-    gl.activeTexture(gl.TEXTURE0);
-    gl.vertexAttribPointer(shaderProgram.aVertexTextureCoords, 2, gl.FLOAT, false, 0, 0);
-    gl.uniform1i(shaderProgram.uUseTexture, renderType != gl.LINES ? true : false); // Enable texture for moon
-    gl.bindTexture(gl.TEXTURE_2D, texture);
-    gl.uniform1i(gl.getUniformLocation(shaderProgram, "uTexture"), 0);
-    gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
-
-    const vertexPosition = gl.getAttribLocation(shaderProgram, 'aVertexPosition');
-    gl.enableVertexAttribArray(vertexPosition);
-    gl.vertexAttribPointer(vertexPosition, 3, gl.FLOAT, false, 0, 0);
-
+    // Set the projection matrix uniform
     gl.uniformMatrix4fv(uProjectionMatrixLocation, false, projectionMatrix);
 
-    let totalLines = (rows - 1) * columns + rows * (columns - 1);
-    let totalVertices = totalLines * 2;
+    // Render the landscape
+    renderLandscape();
 
+    // Render the star field
+    renderStarField();
 
-    if (!isDebug) {
-        gl.drawArrays(renderType, 0, totalVertices);
-        gl.uniform1i(shaderProgram.uUseTexture, false); // Disable texture for stars
-        gl.bindBuffer(gl.ARRAY_BUFFER, starPositionBuffer);
-        gl.vertexAttribPointer(vertexPosition, 3, gl.FLOAT, false, 0, 0);
-        gl.drawArrays(gl.POINTS, 0, 1000); // Number of stars
-    } else {
-        rectangleTest();
-
-    }
-
-
-
-
+    // Request the next frame
     requestAnimationFrame(render);
 }
+
+function renderLandscape() {
+    // Check if the buffer is bound to the attribute
+    if (!landscape.positionBuffer || !landscape.uvBuffer || !landscape.indexBuffer) {
+        console.error('Landscape buffers are not initialized properly.');
+        return;
+    }
+
+    // Bind the buffers and attributes for the landscape
+    gl.bindBuffer(gl.ARRAY_BUFFER, landscape.positionBuffer);
+    gl.vertexAttribPointer(shaderProgram.vertexPosition, 3, gl.FLOAT, false, 0, 0);
+    gl.enableVertexAttribArray(shaderProgram.vertexPosition);
+
+    gl.bindBuffer(gl.ARRAY_BUFFER, landscape.uvBuffer);
+    gl.vertexAttribPointer(shaderProgram.aVertexTextureCoords, 2, gl.FLOAT, false, 0, 0);
+    gl.enableVertexAttribArray(shaderProgram.aVertexTextureCoords);
+
+    // Bind the texture
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, texture);
+    gl.uniform1i(shaderProgram.uUseTexture, true);
+
+    // Bind the index buffer and draw the landscape
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, landscape.indexBuffer);
+    gl.drawElements(gl.TRIANGLES, landscape.count, gl.UNSIGNED_SHORT, 0);
+}
+
+function renderStarField() {
+    // Check if the buffer is bound to the attribute
+    if (!starPositionBuffer) {
+        console.error('Star position buffer is not initialized properly.');
+        return;
+    }
+
+    // Render the stars
+    gl.uniform1i(shaderProgram.uUseTexture, false); // Don't use the texture for the stars
+    gl.bindBuffer(gl.ARRAY_BUFFER, starPositionBuffer);
+    gl.vertexAttribPointer(shaderProgram.vertexPosition, 3, gl.FLOAT, false, 0, 0);
+    gl.enableVertexAttribArray(shaderProgram.vertexPosition);
+
+    // Draw the stars as points
+    gl.drawArrays(gl.POINTS, 0, 1000); // Assume 1000 stars
+}
+
 
 // Call the init function when the window loads
 window.onload = init;

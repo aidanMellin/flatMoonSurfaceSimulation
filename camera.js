@@ -44,12 +44,12 @@ function setupEventListeners() {
             case '+':
                 rows = Math.min(rows + 10, 200); // Prevent it from going too high
                 columns = Math.min(columns + 10, 200);
-                regenerateGrid();
+                // regenerateGrid();
                 break;
             case '-':
                 rows = Math.max(rows - 10, 10); // Prevent it from going too low
                 columns = Math.max(columns - 10, 10);
-                regenerateGrid();
+                // regenerateGrid();
                 break;
             case "[":
                 renderType = gl.TRIANGLES;
