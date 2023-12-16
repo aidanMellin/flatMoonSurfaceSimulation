@@ -250,7 +250,7 @@ async function init() {
     texture = gl.createTexture();
 
     try {
-        texture = await loadTexture(gl, 'blueSquareStriped.jpeg');
+        texture = await loadTexture(gl, 'moontext.jpeg');
     } catch (error) {
         alert('Texture loading failed: ' + error.message);
         return;
@@ -292,7 +292,7 @@ function render() {
 
     gl.activeTexture(gl.TEXTURE0);
     gl.vertexAttribPointer(shaderProgram.aVertexTextureCoords, 2, gl.FLOAT, false, 0, 0);
-    gl.uniform1i(shaderProgram.uUseTexture, true); // Enable texture for moon
+    gl.uniform1i(shaderProgram.uUseTexture, renderType != gl.LINES ? true : false); // Enable texture for moon
     gl.bindTexture(gl.TEXTURE_2D, texture);
     gl.uniform1i(gl.getUniformLocation(shaderProgram, "uTexture"), 0);
     gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
