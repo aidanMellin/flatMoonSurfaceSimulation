@@ -44,12 +44,10 @@ function setupEventListeners() {
             case '+':
                 rows = Math.min(rows + 10, 200); // Prevent it from going too high
                 columns = Math.min(columns + 10, 200);
-                // regenerateGrid();
                 break;
             case '-':
                 rows = Math.max(rows - 10, 10); // Prevent it from going too low
                 columns = Math.max(columns - 10, 10);
-                // regenerateGrid();
                 break;
             case "[":
                 renderType = gl.TRIANGLES;
@@ -272,8 +270,6 @@ function updateCamera() {
     mat4.lookAt(viewMatrix, cameraPosition, lookAtPoint, upVector);
     mat4.multiply(projectionMatrix, projectionMatrix, viewMatrix);
 }
-
-
 
 function resizeCanvasToDisplaySize(canvas) {
     const width = canvas.clientWidth;

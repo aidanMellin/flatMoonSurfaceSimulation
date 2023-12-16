@@ -109,54 +109,6 @@ function loadTexture(gl, url) {
     });
 }
 
-function createGrid(rows, columns) {
-    let vertices = []; // Array to store the vertices for WebGL
-    let uvs = []; // Array for UVs
-    let indices = []; // Array for indices
-    grid = []; // Clear the grid array
-
-    // Create vertices and UVs
-    for (let z = 0; z <= rows; z++) {
-        for (let x = 0; x <= columns; x++) {
-            let nx = (x / columns); // Normalize X to range [0, 1]
-            let nz = (z / rows); // Normalize Z to range [0, 1]
-            let height = layeredNoise(nx * 2 - 1, nz * 2 - 1); // Scale to [-1, 1] for noise
-
-            let vertex = [nx * 2 - 1, height, nz * 2 - 1]; // Position vertex within [-1, 1] range in X and Z
-            vertices.push(...vertex); // Add it to the vertices array
-
-            // Calculate and push UV coordinates
-            let u = x / columns;
-            let v = z / rows;
-            uvs.push(u, v);
-
-            // Log the first and last UV coordinates
-            if ((z === 0 && x === 0) || (z === rows && x === columns)) {
-                console.log("UV at (" + x + ", " + z + "): " + u + ", " + v);
-            }
-        }
-    }
-
-    // Connect vertices to form triangles (using indices)
-    for (let z = 0; z < rows; z++) {
-        for (let x = 0; x < columns; x++) {
-            let bottomLeft = z * (columns + 1) + x;
-            let topLeft = (z + 1) * (columns + 1) + x;
-            let bottomRight = z * (columns + 1) + x + 1;
-            let topRight = (z + 1) * (columns + 1) + x + 1;
-
-            // Triangle 1
-            indices.push(bottomLeft, topLeft, bottomRight);
-
-            // Triangle 2
-            indices.push(topLeft, topRight, bottomRight);
-        }
-    }
-
-    // Return the vertices, uvs, and indices
-    return { vertices, uvs, indices };
-}
-
 function createLandscape(rows, columns) {
     const positions = [];
     const uvs = [];
@@ -213,72 +165,6 @@ function createLandscape(rows, columns) {
     };
 }
 
-
-
-
-function regenerateGrid() {
-    let vertices = createGrid(rows, columns);
-    gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
-    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STATIC_DRAW);
-}
-
-// general call to make and bind a new object based on current
-// settings..Basically a call to shape specfic calls in cgIshape.js
-function createNewShape() {
-
-    // clear your points and elements
-    points = [];
-    indices = [];
-
-    // make your shape based on type
-    let shapeData = createGrid(rows, columns);
-    points = shapeData.vertices;
-    uvs = shapeData.uvs;
-    console.log(shapeData.uvs);
-
-    //create and bind VAO
-    if (myVAO == null) myVAO = gl.createVertexArray();
-    gl.bindVertexArray(myVAO);
-
-    uvBuffer = gl.createBuffer(); // Ensure uvBuffer is created
-    gl.bindBuffer(gl.ARRAY_BUFFER, uvBuffer);
-
-    // create and bind vertex buffer
-    if (myVertexBuffer == null) myVertexBuffer = gl.createBuffer();
-    gl.bindBuffer(gl.ARRAY_BUFFER, myVertexBuffer);
-    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(points), gl.STATIC_DRAW);
-    gl.enableVertexAttribArray(shaderProgram.aVertexPosition);
-    gl.vertexAttribPointer(shaderProgram.aVertexPosition, 4, gl.FLOAT, false, 0, 0);
-
-    // gl.bindBuffer(gl.ARRAY_BUFFER, uvBuffer);
-    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(uvs), gl.STATIC_DRAW); // Buffer the UV data
-    gl.vertexAttribPointer(shaderProgram.aVertexTextureCoords, 2, gl.FLOAT, false, 0, 0);
-    gl.enableVertexAttribArray(shaderProgram.aVertexTextureCoords);
-
-    // uniform values
-    gl.uniform3fv(shaderProgram.uTheta, new Float32Array(angles));
-
-    // Setting up the IBO
-    if (myIndexBuffer == null) myIndexBuffer = gl.createBuffer();
-    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, myIndexBuffer);
-    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(indices), gl.STATIC_DRAW);
-
-    // After setting up the buffer data, read it back for debugging
-    if (gl instanceof WebGL2RenderingContext) {
-        // Only available in WebGL2
-        let readBackData = new Float32Array(uvs.length);
-        gl.getBufferSubData(gl.ARRAY_BUFFER, 0, readBackData);
-        console.log('Buffer data:', readBackData);
-    }
-
-
-    // Clean
-    gl.bindVertexArray(null);
-    gl.bindBuffer(gl.ARRAY_BUFFER, null);
-    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
-}
-
-
 function createStarField(numStars) {
     let stars = [];
     for (let i = 0; i < numStars; i++) {
@@ -290,9 +176,6 @@ function createStarField(numStars) {
     }
     return stars;
 }
-
-
-
 
 async function init() {
     const canvas = document.getElementById('glCanvas');
