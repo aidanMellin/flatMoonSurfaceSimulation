@@ -161,7 +161,7 @@ function createLandscape(rows, columns) {
     const positions = [];
     const uvs = [];
     const indices = [];
-    const size = 1; // Size of each grid cell
+    const size = .1; // Size of each grid cell
 
     // Generate positions, UVs, and indices
     for (let z = 0; z <= rows; z++) {
@@ -169,7 +169,7 @@ function createLandscape(rows, columns) {
             // Position
             const xPos = (x - columns * 0.5) * size;
             const zPos = (z - rows * 0.5) * size;
-            const yPos = layeredNoise(xPos, zPos); // Apply height using noise
+            const yPos = layeredNoise((xPos / size) / columns, (zPos / size) / rows); 
             positions.push(xPos, yPos, zPos);
 
             // UVs
@@ -212,6 +212,7 @@ function createLandscape(rows, columns) {
         count: indices.length
     };
 }
+
 
 
 
