@@ -22,13 +22,13 @@ let cameraAngleY = 0;
 let cameraSpeed = 0.1;
 let rotationSpeed = 0.005;
 
-  // Other globals with default values;
-  var division1 = 3;
-  var division2 = 1;
-  var updateDisplay = true;
-  var anglesReset = [30.0, 30.0, 0.0];
-  var angles = [30.0, 30.0, 0.0];
-  var angleInc = 5.0;
+// Other globals with default values;
+var division1 = 3;
+var division2 = 1;
+var updateDisplay = true;
+var anglesReset = [30.0, 30.0, 0.0];
+var angles = [30.0, 30.0, 0.0];
+var angleInc = 5.0;
 
 let rows = 100;
 let columns = 100;
@@ -38,28 +38,56 @@ let renderType;
 let starPositionBuffer;
 
 const vertexShaderSource = `
-    attribute vec4 aVertexPosition;
-    uniform mat4 uProjectionMatrix;
+attribute vec4 aVertexPosition;
+attribute vec2 aVertexTextureCoords; // New attribute for UVs
+varying vec2 vTextureCoords; // To pass UVs to the fragment shader
 
-    void main() {
-        gl_PointSize = 2.0; // Set this to a visible size
-        gl_Position = uProjectionMatrix * aVertexPosition;
-    }`;
+uniform mat4 uProjectionMatrix;
+
+void main() {
+    gl_PointSize = 2.0;
+    gl_Position = uProjectionMatrix * aVertexPosition;
+    vTextureCoords = aVertexTextureCoords; // Pass UVs to the fragment shader
+}
+`;
 
 const fragmentShaderSource = `
-    uniform bool uIsStar;
+precision mediump float; // Add this for WebGL1 compatibility
 
-    void main() {
-        if (uIsStar) {
-            gl_FragColor = vec4(1.0, 1.0, 1.0, 1.0); // Bright white for stars
-        } else {
-            gl_FragColor = vec4(0.9, 0.9, 0.9, 1.0); // Slightly off-white/gray for terrain
-        }
-    }`;
+varying vec2 vTextureCoords; // Receive UVs
+uniform sampler2D uTexture; // Texture sampler
+uniform bool uUseTexture; // Flag to enable/disable texture
 
+void main() {
+    if (uUseTexture) {
+        gl_FragColor = texture2D(uTexture, vTextureCoords); // Apply texture
+    } else {
+        gl_FragColor = vec4(1.0); // White color for stars
+    }
+}
+`;
 
+function loadTexture(gl, url) {
+    return new Promise((resolve, reject) => {
+        const texture = gl.createTexture();
+        const image = new Image();
+        image.onload = () => {
+            gl.bindTexture(gl.TEXTURE_2D, texture);
+            gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+            gl.bindTexture(gl.TEXTURE_2D, null);
+            resolve(texture);
+            console.log("Texture loaded");
+        };
+        image.onerror = () => {
+            reject(new Error(`Failed to load image at ${url}`));
+        };
+        image.src = url;
+    });
+}
 
-function init() {
+async function init() {
     const canvas = document.getElementById('glCanvas');
     gl = canvas.getContext('webgl2');
 
@@ -75,6 +103,9 @@ function init() {
     gl.attachShader(shaderProgram, vertexShader);
     gl.attachShader(shaderProgram, fragmentShader);
     gl.linkProgram(shaderProgram);
+    shaderProgram.vertexPosition = gl.getAttribLocation(shaderProgram, 'aVertexPosition');
+    shaderProgram.aVertexTextureCoords = gl.getAttribLocation(shaderProgram, 'aVertexTextureCoords');
+    shaderProgram.uUseTexture = gl.getUniformLocation(shaderProgram, "uUseTexture");
 
     if (!gl.getProgramParameter(shaderProgram, gl.LINK_STATUS)) {
         alert('Unable to initialize the shader program: ' + gl.getProgramInfoLog(shaderProgram));
@@ -82,47 +113,42 @@ function init() {
     }
 
     texture = gl.createTexture();
-      
-        const image = new Image();
+
+    try {
+        texture = await loadTexture(gl, 'moontext.jpeg');
+    } catch (error) {
+        alert('Texture loading failed: ' + error.message);
+        return;
+    }
+
+    // create and bind your current object
+    starPositionBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, starPositionBuffer);
+    let starVertices = createStarField(1000); // Adjust the number of stars as needed
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(starVertices), gl.STATIC_DRAW);
 
 
-        image.src = 'moontext.png'; // note: file in same dir as other files for program
-        image.decode();
-        // img is ready to use: this console write is left here to help
-        // others with potential debugging when changing this function
-        console.log(`width: ${image.width}, height: ${image.height}`);
-        gl.bindTexture(gl.TEXTURE_2D, texture);
-        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
-        gl.bindTexture(gl.TEXTURE_2D, null);
-        
-        // create and bind your current object
-        starPositionBuffer = gl.createBuffer();
-        gl.bindBuffer(gl.ARRAY_BUFFER, starPositionBuffer);
-        let starVertices = createStarField(1000); // Adjust the number of stars as needed
-        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(starVertices), gl.STATIC_DRAW);
-    
-    
-        projectionMatrix = mat4.create();
-        viewMatrix = mat4.create();
-    
-        positionBuffer = gl.createBuffer();
-        gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
-        vertices = createGrid(100, 100);
-        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STATIC_DRAW);
-    
-        uProjectionMatrixLocation = gl.getUniformLocation(shaderProgram, 'uProjectionMatrix');
-    
-        renderType = gl.TRIANGLES;
-    
-        createNewShape();
-        setupCamera();
-        setupEventListeners();
-        // do a draw
-        render();
-       
-     
+    projectionMatrix = mat4.create();
+    viewMatrix = mat4.create();
+
+    positionBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+    let { vertices, uvs } = createGrid(rows, columns);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STATIC_DRAW);
+
+    uProjectionMatrixLocation = gl.getUniformLocation(shaderProgram, 'uProjectionMatrix');
+
+    renderType = gl.TRIANGLES;
+
+    gl.enable(gl.DEPTH_TEST);
+
+    createNewShape();
+    setupCamera();
+    setupEventListeners();
+    // do a draw
+    render();
+
+
     //render();
 }
 
@@ -295,19 +321,22 @@ function loadShader(gl, type, source) {
 }
 
 function createGrid(rows, columns) {
+    let vertices = []; // Array to store the vertices for WebGL
+    let uvs = []; // Array for UVs
+    grid = []; // Clear the grid array
 
     // Create vertices and store them in a grid
     for (let z = 0; z <= rows; z++) {
         let row = [];
         for (let x = 0; x <= columns; x++) {
-            let nx = x / columns - 0.5, // Normalize X
-                nz = z / rows - 0.5;    // Normalize Z
-            let height = layeredNoise(nx, nz);
+            let nx = x / columns - 0.5; // Normalize X
+            let nz = z / rows - 0.5; // Normalize Z
+            let height = layeredNoise(nx, nz); // Get the height from the noise function
 
-            let vertex = [2 * nx, height, 2 * nz];
-            row.push(vertex);
+            let vertex = [2 * nx, height, 2 * nz]; // Create the vertex
+            row.push(vertex); // Add it to the row
         }
-        grid.push(row);
+        grid.push(row); // Add the row to the grid
     }
 
     // Connect vertices to form triangles
@@ -323,46 +352,58 @@ function createGrid(rows, columns) {
 
             // Triangle 2
             vertices.push(...bottomLeft, ...topRight, ...topLeft);
+
+            let u1 = x / columns, v1 = z / rows;
+            let u2 = (x + 1) / columns, v2 = (z + 1) / rows;
+
+            // Triangle 1 UVs
+            uvs.push(u1, v1, u2, v1, u2, v2);
+
+            // Triangle 2 UVs
+            uvs.push(u1, v1, u2, v2, u1, v2);
         }
     }
 
-    return vertices;
+    // Return the vertices and uvs
+    return { vertices, uvs };
 }
 
+
 // general call to make and bind a new object based on current
-  // settings..Basically a call to shape specfic calls in cgIshape.js
-  function createNewShape() {
-      
+// settings..Basically a call to shape specfic calls in cgIshape.js
+function createNewShape() {
+
     // clear your points and elements
     points = [];
     indices = [];
-    uvs = [];
 
     // make your shape based on type
-    createGrid(100,100);
-    
+    let shapeData = createGrid(rows, columns);
+    points = shapeData.vertices;
+    uvs = shapeData.uvs;
+
     //create and bind VAO
     if (myVAO == null) myVAO = gl.createVertexArray();
     gl.bindVertexArray(myVAO);
-    
+
     // create and bind vertex buffer
     if (myVertexBuffer == null) myVertexBuffer = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, myVertexBuffer);
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(points), gl.STATIC_DRAW);
     gl.enableVertexAttribArray(shaderProgram.aVertexPosition);
     gl.vertexAttribPointer(shaderProgram.aVertexPosition, 4, gl.FLOAT, false, 0, 0);
-    
-    // create and bind uv buffer
+
+    // Set up UV buffer
+    // create and bind UV buffer
     if (myUVBuffer == null) myUVBuffer = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, myUVBuffer);
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(uvs), gl.STATIC_DRAW);
     gl.enableVertexAttribArray(shaderProgram.aVertexTextureCoords);
-    // note that texture uv's are 2d, which is why there's a 2 below
     gl.vertexAttribPointer(shaderProgram.aVertexTextureCoords, 2, gl.FLOAT, false, 0, 0);
 
     // uniform values
-    gl.uniform3fv (shaderProgram.uTheta, new Float32Array(angles));
-   
+    gl.uniform3fv(shaderProgram.uTheta, new Float32Array(angles));
+
     // Setting up the IBO
     if (myIndexBuffer == null) myIndexBuffer = gl.createBuffer();
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, myIndexBuffer);
@@ -372,7 +413,7 @@ function createGrid(rows, columns) {
     gl.bindVertexArray(null);
     gl.bindBuffer(gl.ARRAY_BUFFER, null);
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
-        
+
     // indicate a redraw is required.
     updateDisplay = true;
 }
@@ -418,6 +459,11 @@ function render() {
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
     gl.useProgram(shaderProgram);
+
+    gl.activeTexture(gl.TEXTURE0);
+    gl.uniform1i(shaderProgram.uUseTexture, true); // Enable texture for moon
+    gl.bindTexture(gl.TEXTURE_2D, texture);
+    gl.uniform1i(gl.getUniformLocation(shaderProgram, "uTexture"), 0);
     gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
 
     const vertexPosition = gl.getAttribLocation(shaderProgram, 'aVertexPosition');
@@ -431,7 +477,7 @@ function render() {
 
 
     gl.drawArrays(renderType, 0, totalVertices);
-
+    gl.uniform1i(shaderProgram.uUseTexture, false); // Disable texture for stars
     gl.bindBuffer(gl.ARRAY_BUFFER, starPositionBuffer);
     gl.vertexAttribPointer(vertexPosition, 3, gl.FLOAT, false, 0, 0);
     gl.drawArrays(gl.POINTS, 0, 1000); // Number of stars
@@ -453,3 +499,4 @@ function resizeCanvasToDisplaySize(canvas) {
 
 // Call the init function when the window loads
 window.onload = init;
+
