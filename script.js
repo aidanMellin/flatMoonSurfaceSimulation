@@ -30,12 +30,15 @@ var anglesReset = [30.0, 30.0, 0.0];
 var angles = [30.0, 30.0, 0.0];
 var angleInc = 5.0;
 
-let rows = 100;
-let columns = 100;
+let rows = 300;
+let columns = 300;
 
 let renderType;
 
 let starPositionBuffer;
+
+const heightMultiplierArray = [10, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+let heightMultiplier = heightMultiplierArray[0] * 1000;
 
 let isDebug = true;
 
@@ -113,7 +116,7 @@ function createLandscape(rows, columns) {
     const positions = [];
     const uvs = [];
     const indices = [];
-    const size = .1; // Size of each grid cell
+    const size = rows/heightMultiplier; // Size of each grid cell
 
     // Generate positions, UVs, and indices
     for (let z = 0; z <= rows; z++) {
@@ -305,6 +308,13 @@ function renderStarField() {
     gl.drawArrays(gl.POINTS, 0, 1000); // Assume 1000 stars
 }
 
+function regenerateLandscape() {
+    // Recreate the landscape with the updated rows and columns
+    landscape = createLandscape(rows, columns);
+
+    // Call updateCamera to ensure the camera is properly set up
+    updateCamera();
+}
 
 // Call the init function when the window loads
 window.onload = init;

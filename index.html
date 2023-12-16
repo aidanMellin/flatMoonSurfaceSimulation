@@ -12,6 +12,7 @@
                 justify-content: center;
                 height: 100vh;
                 margin: 0;
+                overflow: hidden;
             }
 
             canvas {
@@ -21,7 +22,7 @@
     </head>
     <body>
         <h1>Flat Moon Surface Simulation</h1>
-        <canvas id="glCanvas" width="1200" height="800">
+        <canvas id="glCanvas" width="1800" height="800">
             Your browser does not support the HTML5 canvas element.
         </canvas>
 
@@ -32,9 +33,8 @@
                 <li>A/D: Move camera left/right</li>
                 <li>Up/Down Arrows: Increase/decrease field of view</li>
                 <li>Right-Click + Drag: Look around</li>
-                <li>Mouse Wheel: Zoom in/out</li>
-                <li>[ : Render Solid</li>
-                <li>] : Render as a wireframe </li>
+                <li>Mouse Wheel: Move In/Out</li>
+                <li>Mouse Wheel + Ctrl : Move Up/Down</li>
             </ul>
         </div>
         
