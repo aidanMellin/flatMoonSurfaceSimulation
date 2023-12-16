@@ -37,6 +37,8 @@ let renderType;
 
 let starPositionBuffer;
 
+let isDebug = true;
+
 const vertexShaderSource = `
 attribute vec4 aVertexPosition;
 attribute vec2 aVertexTextureCoords; // New attribute for UVs
@@ -174,9 +176,6 @@ function createNewShape() {
     uvs = shapeData.uvs;
     console.log(shapeData.uvs);
 
-    let totalVertices = vertices.length / 3; // If each vertex has 3 components (x, y, z)
-
-
     //create and bind VAO
     if (myVAO == null) myVAO = gl.createVertexArray();
     gl.bindVertexArray(myVAO);
@@ -203,6 +202,15 @@ function createNewShape() {
     if (myIndexBuffer == null) myIndexBuffer = gl.createBuffer();
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, myIndexBuffer);
     gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(indices), gl.STATIC_DRAW);
+
+    // After setting up the buffer data, read it back for debugging
+    if (gl instanceof WebGL2RenderingContext) {
+        // Only available in WebGL2
+        let readBackData = new Float32Array(uvs.length);
+        gl.getBufferSubData(gl.ARRAY_BUFFER, 0, readBackData);
+        console.log('Buffer data:', readBackData);
+    }
+
 
     // Clean
     gl.bindVertexArray(null);
@@ -311,11 +319,19 @@ function render() {
     let totalVertices = totalLines * 2;
 
 
-    gl.drawArrays(renderType, 0, totalVertices);
-    gl.uniform1i(shaderProgram.uUseTexture, false); // Disable texture for stars
-    gl.bindBuffer(gl.ARRAY_BUFFER, starPositionBuffer);
-    gl.vertexAttribPointer(vertexPosition, 3, gl.FLOAT, false, 0, 0);
-    gl.drawArrays(gl.POINTS, 0, 1000); // Number of stars
+    if (!isDebug) {
+        gl.drawArrays(renderType, 0, totalVertices);
+        gl.uniform1i(shaderProgram.uUseTexture, false); // Disable texture for stars
+        gl.bindBuffer(gl.ARRAY_BUFFER, starPositionBuffer);
+        gl.vertexAttribPointer(vertexPosition, 3, gl.FLOAT, false, 0, 0);
+        gl.drawArrays(gl.POINTS, 0, 1000); // Number of stars
+    } else {
+        rectangleTest();
+
+    }
+
+
+
 
     requestAnimationFrame(render);
 }
